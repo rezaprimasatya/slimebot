@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "achievements" TEXT[],
+ADD COLUMN     "lastLoginDate" TIMESTAMP(3),
+ADD COLUMN     "loginStreak" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "pityCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "totalKills" INTEGER NOT NULL DEFAULT 0;

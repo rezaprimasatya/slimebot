@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  username          String    @unique
+  isPremium         Boolean   @default(false)
+  premiumExpiresAt  DateTime?
+  souls             Int       @default(150)
+  highScore         Int       @default(0)
+  totalGamesPlayed  Int       @default(0)
+  totalKills        Int       @default(0)
+  ownedCharacters   String[]
+  achievements      String[]
+  inventoryItems    String[]
+  selectedCharacter String?
+  lastGachaPull     DateTime?
+  pityCount         Int       @default(0)
+  lastLoginDate     DateTime?
+  loginStreak       Int       @default(0)
+  createdAt         DateTime  @default(now())
+}
+
+model VoucherCode {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  type      String    // 'souls_100' | 'souls_300' | 'souls_1000' | 'premium_30d' | 'premium_90d'
+  usedBy    String?
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
