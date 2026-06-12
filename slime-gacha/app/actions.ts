@@ -409,19 +409,24 @@ export async function getLeaderboard() {
 
 // ─── Game Result ──────────────────────────────────────────────────────────────
 
+const int = z.number().transform(Math.round);
+
 const GameResultSchema = z.object({
   userId: z.string().uuid(),
-  score: z.number().int().min(0),
-  soulsEarned: z.number().int().min(0),
+  score: int.pipe(z.number().min(0)),
+  soulsEarned: int.pipe(z.number().min(0)).optional().default(0),
   duration: z.number().min(5),
-  wave: z.number().int().min(1),
-  kills: z.number().int().min(0),
+  wave: int.pipe(z.number().min(0)),
+  kills: int.pipe(z.number().min(0)),
   survived: z.boolean(),
 });
 
 export async function submitGameResult(payload: unknown) {
   const parsed = GameResultSchema.safeParse(payload);
-  if (!parsed.success) throw new Error('Invalid game data');
+  if (!parsed.success) {
+    console.error('[submitGameResult] validation failed:', JSON.stringify(parsed.error.flatten()));
+    throw new Error('Invalid game data');
+  }
 
   const { userId, score, soulsEarned: clientSouls, duration: _duration, wave, kills, survived } = parsed.data;
   void _duration;
