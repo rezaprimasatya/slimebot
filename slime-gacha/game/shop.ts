@@ -20,7 +20,7 @@ export const SHOP_ITEMS: Record<string, ShopItem> = {
   },
   soul_amp: {
     id: 'soul_amp', name: 'Soul Amplifier', icon: '💧',
-    description: '+50% souls diperoleh dari game berikutnya.',
+    description: '+1 soul extra setiap kill monster di game berikutnya.',
     cost: 50, stackable: false,
   },
   time_extend: {

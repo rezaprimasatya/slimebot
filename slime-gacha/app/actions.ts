@@ -1,6 +1,7 @@
 'use server';
 import { prisma } from '@/prisma/client';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import { rollGachaWithPity, CHARACTERS } from '@/game/characters';
 import { ACHIEVEMENTS, dailyLoginSouls } from '@/game/achievements';
 import { SHOP_ITEMS } from '@/game/shop';
@@ -14,30 +15,36 @@ function isPremiumActive(premiumExpiresAt: Date | null): boolean {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export async function loginUser(username: string) {
+export async function loginUser(username: string, password: string) {
   const trimmed = username.trim();
   if (!trimmed) return { success: false, message: 'Username tidak boleh kosong.' };
+  if (!password) return { success: false, message: 'Password tidak boleh kosong.' };
   const user = await prisma.user.findUnique({
     where: { username: trimmed },
-    select: { id: true, username: true },
+    select: { id: true, username: true, passwordHash: true },
   });
   if (!user) return { success: false, message: 'Username tidak ditemukan. Sudah daftar belum?' };
+  if (!user.passwordHash) return { success: false, message: 'Akun ini belum punya password. Hubungi admin.' };
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return { success: false, message: 'Password salah.' };
   return { success: true, userId: user.id, username: user.username };
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
-export async function registerUser(username: string) {
+export async function registerUser(username: string, password: string) {
   const trimmed = username.trim();
   if (!trimmed || trimmed.length < 3) return { success: false, message: 'Username minimal 3 karakter!' };
   if (trimmed.length > 20) return { success: false, message: 'Username maksimal 20 karakter!' };
   if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
     return { success: false, message: 'Username hanya boleh huruf, angka, dan underscore.' };
   }
+  if (!password || password.length < 6) return { success: false, message: 'Password minimal 6 karakter!' };
   const existing = await prisma.user.findUnique({ where: { username: trimmed } });
   if (existing) return { success: false, message: 'Username sudah dipakai, coba yang lain!' };
   try {
-    const newUser = await prisma.user.create({ data: { username: trimmed } });
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUser = await prisma.user.create({ data: { username: trimmed, passwordHash } });
     return { success: true, userId: newUser.id };
   } catch {
     return { success: false, message: 'Server error, coba lagi nanti.' };
@@ -154,7 +161,7 @@ export async function pullGacha(userId: string) {
 
     const premium = isPremiumActive(user.premiumExpiresAt as Date | null);
     const GACHA_COST = premium ? 8 : 10;
-    const HARD_PITY = premium ? 40 : 50;
+    const HARD_PITY = premium ? 70 : 100;
 
     if (user.souls < GACHA_COST) {
       return { success: false, message: `Souls tidak cukup! Butuh ${GACHA_COST} souls (kamu punya ${user.souls}).` };
@@ -167,8 +174,8 @@ export async function pullGacha(userId: string) {
       }
     }
 
-    // Override pity for premium (hard pity at 40)
-    const effectivePity = premium && user.pityCount >= HARD_PITY ? 50 : user.pityCount;
+    // Override pity for premium (hard pity at 70)
+    const effectivePity = premium && user.pityCount >= HARD_PITY ? 100 : user.pityCount;
     const pullNum = user.ownedCharacters.length + 1;
 
     const { character, newPity, newAchievements, allAchievements, bonusSouls } = await _doPull(
@@ -404,8 +411,9 @@ export async function getLeaderboard() {
 
 const GameResultSchema = z.object({
   userId: z.string().uuid(),
-  score: z.number().int().min(0).max(999999),
-  duration: z.number().min(5).max(300),
+  score: z.number().int().min(0),
+  soulsEarned: z.number().int().min(0),
+  duration: z.number().min(5),
   wave: z.number().int().min(1),
   kills: z.number().int().min(0),
   survived: z.boolean(),
@@ -415,7 +423,8 @@ export async function submitGameResult(payload: unknown) {
   const parsed = GameResultSchema.safeParse(payload);
   if (!parsed.success) throw new Error('Invalid game data');
 
-  const { userId, score, duration, wave, kills, survived } = parsed.data;
+  const { userId, score, soulsEarned: clientSouls, duration: _duration, wave, kills, survived } = parsed.data;
+  void _duration;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -423,8 +432,8 @@ export async function submitGameResult(payload: unknown) {
   });
   if (!user) throw new Error('User tidak ditemukan.');
 
-  const soulsEarned = Math.max(1, Math.floor(score / 10));
-  const cappedSouls = Math.min(soulsEarned, Math.floor(duration * 50));
+  // Cap souls: max 20 per kill (generous upper bound for full-collection multipliers + soulAmp)
+  const cappedSouls = Math.min(clientSouls, kills * 20, 9999);
   const isNewHighScore = score > user.highScore;
   const newTotalKills = user.totalKills + kills;
   const uniqueOwned = new Set(user.ownedCharacters).size;

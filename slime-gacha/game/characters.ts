@@ -18,14 +18,14 @@ export interface Character {
   stats: { power: number; speed: number; defense: number };
 }
 
-// Drop rates: 40 + 25 + 15 + 9 + 5 + 3 + 1.8 + 1.0 + 0.15 + 0.05 = 100.00 ✓
+// Drop rates: 52 + 28 + 12 + 5 + 2 + 0.7 + 0.2 + 0.08 + 0.015 + 0.005 = 100.00 ✓
 export const CHARACTERS: Record<string, Character> = {
   slime_hijau: {
     id: 'slime_hijau',
     name: 'Slime Hijau',
     description: 'Slime paling dasar yang ada di dunia. Tidak berbahaya, tapi setia.',
     tier: 1, tierName: 'Common', category: 'Basic',
-    dropRate: 0.4000,
+    dropRate: 0.5200,
     color: 0x44ff88, cssColor: '#9ca3af', glowColor: '#6b7280',
     stats: { power: 1, speed: 3, defense: 1 },
   },
@@ -34,7 +34,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Slime Awan',
     description: 'Melayang ringan di angin. Lebih gesit dari sepupunya yang hijau.',
     tier: 2, tierName: 'Uncommon', category: 'Basic',
-    dropRate: 0.2500,
+    dropRate: 0.2800,
     color: 0x93c5fd, cssColor: '#4ade80', glowColor: '#16a34a',
     stats: { power: 2, speed: 5, defense: 2 },
   },
@@ -43,7 +43,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Slime Petir',
     description: 'Berisi energi listrik murni. Setiap sentuhan memancarkan percikan api biru.',
     tier: 3, tierName: 'Advanced', category: 'Common+',
-    dropRate: 0.1500,
+    dropRate: 0.1200,
     color: 0xfbbf24, cssColor: '#60a5fa', glowColor: '#2563eb',
     stats: { power: 4, speed: 7, defense: 2 },
   },
@@ -52,7 +52,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Slime Baja',
     description: 'Tubuhnya adalah logam murni yang ditempa selama berabad-abad. Hampir tidak bisa ditembus.',
     tier: 4, tierName: 'Elite', category: 'Intermediate',
-    dropRate: 0.0900,
+    dropRate: 0.0500,
     color: 0x94a3b8, cssColor: '#818cf8', glowColor: '#4f46e5',
     stats: { power: 5, speed: 3, defense: 8 },
   },
@@ -61,7 +61,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Naga Lumpur',
     description: 'Bangkitan naga purba dari lumpur kuno berumur ribuan tahun. Auranya menakutkan.',
     tier: 5, tierName: 'Master', category: 'Intermediate',
-    dropRate: 0.0500,
+    dropRate: 0.0200,
     color: 0xa16207, cssColor: '#c084fc', glowColor: '#9333ea',
     stats: { power: 7, speed: 5, defense: 6 },
   },
@@ -70,7 +70,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Mecha Bot',
     description: 'Robot slime dari peradaban yang belum lahir. Teknologi tak terbayangkan dalam satu entitas.',
     tier: 6, tierName: 'Epic', category: 'Advanced',
-    dropRate: 0.0300,
+    dropRate: 0.0070,
     color: 0xa78bfa, cssColor: '#f472b6', glowColor: '#db2777',
     stats: { power: 8, speed: 6, defense: 7 },
   },
@@ -79,7 +79,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Slime Phoenix',
     description: 'Lahir dari abu dan api. Tidak mengenal kematian yang sebenarnya.',
     tier: 7, tierName: 'Mythic', category: 'Advanced',
-    dropRate: 0.0180,
+    dropRate: 0.0020,
     color: 0xff6600, cssColor: '#fb923c', glowColor: '#ea580c',
     stats: { power: 9, speed: 8, defense: 5 },
   },
@@ -88,7 +88,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Slime Emas',
     description: 'Manifestasi kemewahan absolut. Setiap tetes tubuhnya bernilai kerajaan.',
     tier: 8, tierName: 'Transcendent', category: 'Prestige',
-    dropRate: 0.0100,
+    dropRate: 0.0008,
     color: 0xffd700, cssColor: '#fde68a', glowColor: '#d97706',
     stats: { power: 9, speed: 7, defense: 9 },
   },
@@ -97,7 +97,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'Dewa Slime',
     description: 'Dipuja oleh seluruh ras slime selama ribuan tahun. Kehadirannya membelah realita.',
     tier: 9, tierName: 'Divine', category: 'Ultra-Rare',
-    dropRate: 0.0015,
+    dropRate: 0.000150,
     color: 0xe0f2fe, cssColor: '#e0f2fe', glowColor: '#0ea5e9',
     stats: { power: 10, speed: 9, defense: 10 },
   },
@@ -106,7 +106,7 @@ export const CHARACTERS: Record<string, Character> = {
     name: 'APEX',
     description: '??? — Tidak ada kata-kata yang mampu menggambarkan entitas ini.',
     tier: 10, tierName: 'The Absolute', category: 'God-Tier',
-    dropRate: 0.0005,
+    dropRate: 0.000050,
     color: 0xffffff, cssColor: '#ffffff', glowColor: '#e879f9',
     stats: { power: 10, speed: 10, defense: 10 },
   },
@@ -164,14 +164,14 @@ export function rollGacha(): Character {
   return CHARACTERS['slime_hijau'];
 }
 
-// Pity-aware roll: soft pity at 40, hard pity (guaranteed Mythic+) at 50
+// Pity-aware roll: soft pity at 80, hard pity (guaranteed Mythic+) at 100
 export function rollGachaWithPity(pityCount: number): { character: Character; usedHardPity: boolean } {
   const mythicPlus = Object.values(CHARACTERS)
     .filter((c) => c.tier >= 7)
     .sort((a, b) => a.tier - b.tier);
 
-  // Hard pity: guaranteed Mythic+ at pull 50
-  if (pityCount >= 50) {
+  // Hard pity: guaranteed Mythic+ at pull 100
+  if (pityCount >= 100) {
     const total = mythicPlus.reduce((s, c) => s + c.dropRate, 0);
     const roll = Math.random() * total;
     let cum = 0;
@@ -182,9 +182,9 @@ export function rollGachaWithPity(pityCount: number): { character: Character; us
     return { character: mythicPlus[0], usedHardPity: true };
   }
 
-  // Soft pity at 40–49: linearly boost Mythic+ rate
-  if (pityCount >= 40) {
-    const boost = 1 + (pityCount - 39) * 0.2; // 1.2× to 3.2× at pull 49
+  // Soft pity at 80–99: linearly boost Mythic+ rate (1.2× to 5.0× at pull 99)
+  if (pityCount >= 80) {
+    const boost = 1 + (pityCount - 79) * 0.2;
     const sorted = Object.values(CHARACTERS).sort((a, b) => a.tier - b.tier);
     const boostedRates = sorted.map((c) => (c.tier >= 7 ? c.dropRate * boost : c.dropRate));
     const total = boostedRates.reduce((s, r) => s + r, 0);

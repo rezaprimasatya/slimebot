@@ -14,12 +14,21 @@ Slime Gacha adalah game browser berbasis web yang menggabungkan dua mekanik utam
 
 ---
 
+## Autentikasi
+
+Pemain harus mendaftar dengan **username** dan **password** (minimal 6 karakter). Login juga membutuhkan keduanya. Password disimpan sebagai bcrypt hash di database — tidak ada plaintext yang tersimpan.
+
+---
+
 ## Sistem Mata Uang: Souls
 
 Souls adalah satu-satunya mata uang dalam game. Semua aktivitas ekonomi berpusat pada souls.
 
 Cara mendapatkan souls:
-- Bermain game: setiap 10 poin skor menghasilkan 1 soul, dibatasi oleh durasi permainan
+- **Kill Golem**: +2 souls per kill
+- **Kill Boss** (wave kelipatan 5): +5 souls per kill
+- Kill lain (basic, spike, mutant): tidak menghasilkan souls
+- `soulsMultiplier` dari pasif karakter berlaku — semua souls kill dikalikan multiplier saat game selesai
 - Daily login: reward bertambah sesuai streak login berturut-turut, mulai dari 15 souls di hari pertama hingga 75 souls di hari ke-7 ke atas
 - Achievement: setiap pencapaian yang terbuka pertama kali memberikan bonus souls langsung
 - Redeem voucher: pembelian paket premium dari admin/seller resmi
@@ -39,76 +48,116 @@ Biaya 90 souls untuk 10 pull sekaligus (72 souls untuk premium). Lebih hemat 10%
 ### Tier dan Peluang
 Ada 10 tier karakter dari yang paling umum hingga paling langka:
 
-- Tier 1 — Common: peluang 35%
-- Tier 2 — Uncommon: peluang 25%
-- Tier 3 — Rare: peluang 18%
-- Tier 4 — Epic: peluang 10%
-- Tier 5 — Legendary: peluang 6%
-- Tier 6 — Mythic: peluang 3.5%
-- Tier 7 — Mythic+: peluang 1.5%
-- Tier 8 — Ancient: peluang 0.5%
-- Tier 9 — Eternal: peluang 0.2%
-- Tier 10 — GOD: peluang 0.05%
+- Tier 1 — Common: peluang 52%
+- Tier 2 — Uncommon: peluang 28%
+- Tier 3 — Rare: peluang 12%
+- Tier 4 — Epic: peluang 5%
+- Tier 5 — Legendary: peluang 2%
+- Tier 6 — Mythic: peluang 0,7%
+- Tier 7 — Mythic+: peluang 0,2%
+- Tier 8 — Ancient: peluang 0,08%
+- Tier 9 — Eternal: peluang 0,015%
+- Tier 10 — GOD: peluang 0,005%
 
 ### Sistem Pity
-Pity counter naik 1 setiap pull yang tidak menghasilkan Mythic+ (tier 7 ke atas). Ketika counter reset ke 0 setelah mendapat Mythic+.
+Pity counter naik 1 setiap pull yang tidak menghasilkan Mythic+ (tier 7 ke atas). Counter reset ke 0 setelah mendapat Mythic+.
 
-**Soft pity** aktif di pull ke-40: rate Mythic+ mulai naik bertahap, bisa mencapai 3,2× lipat dari rate normal pada pull ke-49.
+**Soft pity** aktif di pull ke-80: rate Mythic+ mulai naik bertahap setiap pull.
 
-**Hard pity** di pull ke-50: dijamin mendapat Mythic+ (tier 7 ke atas) tanpa pengecualian.
+**Hard pity** di pull ke-100: dijamin mendapat Mythic+ (tier 7 ke atas) tanpa pengecualian.
 
-Member premium mendapat hard pity di pull ke-40, bukan ke-50.
+Member premium mendapat hard pity di pull ke-70, bukan ke-100.
+
+---
+
+## Sistem Constellation (Duplikat ★)
+
+Mendapatkan karakter yang sudah dimiliki tidak sia-sia — setiap duplikat menaikkan **bintang (★)** karakter tersebut, maksimum ★6 (AWAKENED).
+
+Multiplier bonus pasif per level bintang:
+- ★1: 1,0× (base)
+- ★2: 1,15×
+- ★3: 1,30×
+- ★4: 1,50×
+- ★5: 1,75×
+- ★6: 2,0× (AWAKENED — semua bonus pasif karakter tersebut berlipat ganda)
+
+Contoh: Slime Petir ★6 memberikan +10 soul/detik pasif (dari base 2 × 2,0 bintang multiplier × 2,5 star tier), bukan hanya +2.
+
+---
+
+## Sistem Resonance (Sinergi Koleksi)
+
+Memiliki kombinasi karakter tertentu sekaligus mengaktifkan **Resonance** — bonus permanen yang berlaku selama pemain memiliki semua karakter yang dibutuhkan.
+
+Daftar resonance yang tersedia:
+
+| Resonance | Karakter yang Dibutuhkan | Bonus |
+|---|---|---|
+| ⚡ Electric Core | Slime Petir + Mecha Bot | +15% souls dari semua sumber |
+| 🔥 Divine Flame | Slime Phoenix + Dewa Slime | Revive +1 per game + 2 detik invincible tambahan |
+| 👑 Absolute Gold | Slime Emas + APEX | Score ×2 permanen |
+| 🌿 Slime Army | Hijau + Awan + Petir + Baja + Naga Lumpur | +3 Max HP |
+| ⚙ Steel Storm | Slime Baja + Mecha Bot | +20% score tiap kill |
+| ✨ Golden Phoenix | Slime Phoenix + Slime Emas | +30% souls dari semua sumber |
+| ☯ APEX DOMINION | Semua 10 karakter | Souls ×3 + Score ×1,5 + +5 HP |
+
+---
+
+## Collection Power
+
+**Collection Power** = Σ(tier karakter × jumlah bintang), ditampilkan di profil sebagai metrik kekuatan koleksi keseluruhan. Nilai maksimum adalah **330** (semua 10 karakter pada ★6).
 
 ---
 
 ## Roster Karakter (10 Karakter)
 
 ### Slime Hijau — Tier 3 (Rare)
-Karakter dasar yang gesit. Pasif: bonus kecepatan dash. Ability: **Slime Rush** — kecepatan dash 3× selama 3 detik, cooldown 12 detik. Manifestasi boss kill: gelombang shockwave hijau + speed streak melesat ke segala arah.
+Pasif: +5% score tiap kill. Ability: **Slime Rush** — kecepatan dash 3× selama 3 detik, cooldown 12 detik. Manifestasi boss kill: gelombang shockwave hijau + speed streak melesat ke segala arah.
 
 ### Slime Awan — Tier 4 (Epic)
-Slime berbentuk awan yang melayang. Pasif: bonus sedikit skor. Ability: **Cloud Veil** — invincible selama 3 detik, cooldown 15 detik. Manifestasi boss kill: cloud puff biru naik ke atas layar + shimmer ring memudar.
+Pasif: +10% pickup drop rate. Ability: **Cloud Veil** — invincible selama 3 detik, cooldown 15 detik. Manifestasi boss kill: cloud puff biru naik ke atas layar + shimmer ring memudar.
 
 ### Slime Petir — Tier 5 (Legendary)
-Slime bermuatan listrik. Pasif: bonus drop rate pickup. Ability: **Thunder Strike** — hancurkan semua musuh dalam radius 180px sekaligus, cooldown 10 detik. Manifestasi boss kill: 8 petir zig-zag menyambar dari titik ledakan + electric ring berdenyut.
+Pasif: +2 score/detik pasif. Ability: **Thunder Strike** — hancurkan semua musuh dalam radius 180px sekaligus, cooldown 10 detik. Manifestasi boss kill: 8 petir zig-zag menyambar dari titik ledakan + electric ring berdenyut.
 
 ### Slime Baja — Tier 5 (Legendary)
-Slime berlapis baja. Pasif: +1 HP maksimum. Ability: **Iron Fortress** — serap 3 serangan berikutnya tanpa damage, cooldown 12 detik. Manifestasi boss kill: 12 shard besi meledak berputar keluar + cincin baja konsentris.
+Pasif: +1 max HP. Ability: **Iron Fortress** — serap 3 serangan berikutnya tanpa damage, cooldown 12 detik. Manifestasi boss kill: 12 shard besi meledak berputar keluar + cincin baja konsentris.
 
 ### Naga Lumpur — Tier 6 (Mythic)
-Naga purba dari rawa. Pasif: passive score per detik lebih tinggi. Ability: **Mud Swamp** — perlambat semua musuh 70% selama 4 detik, cooldown 15 detik. Manifestasi boss kill: 5 ripple lumpur coklat melebar lambat + 14 percikan mud drops tersebar.
+Pasif: +15% score tiap kill. Ability: **Mud Swamp** — perlambat semua musuh 70% selama 4 detik, cooldown 15 detik. Manifestasi boss kill: 5 ripple lumpur coklat melebar lambat + 14 percikan mud drops tersebar.
 
 ### Mecha Bot — Tier 7 (Mythic+)
-Robot tempur mekanis. Pasif: skor multiplier ringan. Ability: **Laser Sweep** — hancurkan semua musuh dalam garis horizontal ±60px, cooldown 10 detik. Manifestasi boss kill: laser horizontal + vertikal menyapu seluruh layar + kotak mekanis mengembang.
+Pasif: +5 score/detik pasif. Ability: **Laser Sweep** — hancurkan semua musuh dalam garis horizontal ±60px, cooldown 10 detik. Manifestasi boss kill: laser horizontal + vertikal menyapu seluruh layar + kotak mekanis mengembang.
 
 ### Slime Phoenix — Tier 7 (Mythic+)
-Slime yang bangkit dari api. Pasif: revive sekali per game saat HP akan habis. Ability: **Blaze Heal** — pulihkan 2 HP sekaligus, cooldown 20 detik. Manifestasi boss kill: kolom api oranye naik penuh dari bawah ke puncak layar + 20 partikel api terbang ke atas.
+Pasif: Revive 1× saat mati. Ability: **Blaze Heal** — pulihkan 2 HP sekaligus, cooldown 20 detik. Manifestasi boss kill: kolom api oranye naik penuh dari bawah ke puncak layar + 20 partikel api terbang ke atas.
 
 ### Slime Emas — Tier 8 (Ancient)
-Slime bertabur emas. Pasif: soulsMultiplier 1,5× dari semua game. Ability: **Gold Fever** — skor 4× selama 5 detik, cooldown 20 detik. Manifestasi boss kill: 16 koin emas meledak ke segala arah + hujan emas turun dari atas layar.
+Pasif: +25% souls diperoleh. Ability: **Gold Fever** — skor 4× selama 5 detik, cooldown 20 detik. Manifestasi boss kill: 16 koin emas meledak ke segala arah + hujan emas turun dari atas layar.
 
 ### Dewa Slime — Tier 9 (Eternal)
-Perwujudan dewa dari dimensi lain. Pasif: start invincible 2 detik di awal setiap game. Ability: **Divine Grace** — invincible 5 detik sekaligus pulihkan 1 HP, cooldown 25 detik. Manifestasi boss kill: pilar cahaya putih setinggi layar + 5 holy ring turun dari langit + full white flash.
+Pasif: Mulai dengan 3 detik invincible di awal setiap game. Ability: **Divine Grace** — invincible 5 detik sekaligus pulihkan 1 HP, cooldown 25 detik. Manifestasi boss kill: pilar cahaya putih setinggi layar + 5 holy ring turun dari langit + full white flash.
 
 ### APEX — Tier 10 (GOD)
-Entitas di luar pemahaman. Pasif: semua bonus digabung, skor multiplier tinggi. Ability: **ABSOLUTE ZERO** — hancurkan SEMUA musuh di layar + skor 5× selama 8 detik, cooldown 30 detik. Manifestasi boss kill: layar membeku putih → 16 kristal es meledak → screen shatter → bass drop digital.
+Pasif: +1 max HP + +20% score + Revive 1×. Ability: **ABSOLUTE ZERO** — hancurkan SEMUA musuh di layar + skor 5× selama 8 detik, cooldown 30 detik. Manifestasi boss kill: layar membeku putih → 16 kristal es meledak → screen shatter → bass drop digital.
 
 ---
 
 ## Sistem Pasif Karakter
 
-Setiap karakter yang dimiliki (tidak perlu dipilih sebagai karakter aktif) memberikan bonus pasif permanen. Semakin banyak karakter yang dikumpulkan, semakin kuat bonus gabungannya.
+Setiap karakter yang dimiliki (tidak perlu dipilih sebagai karakter aktif) memberikan bonus pasif permanen. Semakin banyak karakter yang dikumpulkan dan semakin tinggi bintangnya, semakin kuat bonus gabungannya.
 
 Jenis bonus pasif yang bisa menumpuk:
 - **scoreMultiplier** — pengali skor akhir, stacking secara multiplikatif
-- **soulsMultiplier** — souls yang diperoleh dari game lebih banyak
-- **maxHp** — HP maksimum bertambah
-- **pickupDropRate** — peluang musuh menjatuhkan pickup lebih tinggi
+- **soulsMultiplier** — pengali souls yang diperoleh dari kill golem/boss
+- **maxHp** — HP maksimum bertambah (hard cap 12 HP)
+- **pickupDropRate** — peluang musuh menjatuhkan pickup lebih tinggi (hard cap 90%)
 - **extraPassivePerSec** — poin bonus otomatis tiap detik selama game
-- **startInvincibleMs** — durasi invincible di awal game
-- **reviveOnce** — kebangkitan sekali saat HP akan habis
+- **startInvincibleMs** — durasi invincible di awal game (diambil nilai tertinggi, tidak stacking)
+- **reviveCount** — jumlah kebangkitan per game saat HP akan habis (bisa stacking)
 
-Semua bonus ini berlaku otomatis tanpa perlu melakukan apapun, hanya dengan memiliki karakternya.
+Semua bonus berlaku otomatis tanpa perlu melakukan apapun, hanya dengan memiliki karakternya.
 
 ---
 
@@ -131,7 +180,7 @@ Jenis ability yang ada:
 - **heal** — pulihkan HP langsung
 - **score_mult** — gandakan skor untuk durasi tertentu
 - **nuke_all** — hancurkan semua musuh di layar sekaligus
-- **soul_burst** — bonus souls instan
+- **soul_burst** — bonus skor instan (bukan souls)
 
 ---
 
@@ -150,18 +199,29 @@ Dash adalah cara satu-satunya untuk membunuh musuh. Saat melakukan dash dan kece
 
 Player memiliki drag fisika sehingga kecepatan berkurang setelah dash. Ability dash_boost meningkatkan threshold ini.
 
-### Sistem Wave
-Game berlangsung selama 30 detik per sesi (38 detik jika item time_extend dipakai). Setiap 9 detik, wave baru dimulai secara otomatis. Setiap wave menambah jumlah dan kekuatan musuh. Saat wave selesai tanpa game over, pemain mendapat bonus skor.
+### Sistem Wave (Infinite)
+Game **tidak memiliki batas waktu** — berlangsung selamanya sampai HP pemain habis. Setiap 9 detik, wave baru dimulai secara otomatis. Setiap wave menambah jumlah dan kekuatan musuh. Saat wave selesai, pemain mendapat bonus skor sebesar `wave × scoreMultiplier`.
+
+**Boss wave hanya muncul di kelipatan 5** (wave 5, 10, 15, 20, ...). Wave sebelum boss (wave 4, 9, 14, ...) memberikan peringatan "BOSS INCOMING!". Wave non-boss memiliki lebih banyak musuh biasa untuk menjaga intensitas.
+
+### Skor Per Kill
+- **Basic Slime**: 1 poin
+- **Spike Slime**: 1 poin
+- **Golem**: 1 poin
+- **Boss** (wave kelipatan 5): wave × 2 poin
+- **Mutant**: 1 poin
+
+Combo multiplier dan scoreMultiplier pasif berlaku di atas nilai dasar ini.
 
 ### Jenis Musuh
-- **Basic Slime** — musuh standar, HP 1, bergerak kecepatan menengah, skor 10
-- **Spike Slime** — lebih cepat, HP 1, skor 25, berbentuk segitiga
-- **Golem** — lambat tapi tangguh, HP 3, skor 80, memiliki HP bar
-- **Boss** — muncul di akhir setiap wave, HP meningkat per wave (wave×15), memiliki HP bar, skor besar
+- **Basic Slime** — musuh standar, HP 1, kecepatan menengah, skor 1
+- **Spike Slime** — lebih cepat, HP 1, skor 1
+- **Golem** — lambat tapi tangguh, HP 3, skor 1, memiliki HP bar, memberikan **2 souls** saat mati
+- **Boss** — hanya muncul di wave kelipatan 5, HP = wave×15, skor = wave×2, memberikan **5 souls** saat mati
 - **Mutant** — muncul setelah boss mati, kecil-kecil tapi cepat, dalam jumlah besar
 
 ### Mutasi Boss
-Ketika boss mati, ia tidak langsung hilang begitu saja. Boss **bermutasi** — meledak menjadi gerombolan klon kecil (mutant) sebanyak wave×5, dengan maksimum 25 klon. Klon ini lebih cepat dari boss aslinya dan bermunculan dari titik ledakan ke segala arah. Inilah momen paling kacau dan berbahaya dalam setiap wave.
+Ketika boss mati, ia **bermutasi** — meledak menjadi gerombolan klon kecil (mutant) sebanyak wave×5, dengan maksimum 25 klon. Klon ini lebih cepat dari boss aslinya dan bermunculan dari titik ledakan ke segala arah.
 
 ### Pickup
 Ketika musuh mati (bukan boss), ada peluang menjatuhkan pickup. Dua jenis pickup:
@@ -183,7 +243,7 @@ Pengganda skor dari combo:
 - Combo 6–7: 2,25–2,5×
 - Combo 8: 3× (maksimum)
 
-Jika lebih dari 1,5 detik berlalu tanpa kill, combo reset ke 0. Terkena damage juga mereset combo. Teks combo ditampilkan di tengah layar dengan animasi bounce.
+Jika lebih dari 1,5 detik berlalu tanpa kill, combo reset ke 0. Terkena damage juga mereset combo.
 
 ---
 
@@ -202,12 +262,11 @@ Rank ditentukan oleh **high score terbaik** sepanjang masa pemain. Rank ditampil
 
 ## Soul Shop (Item Sekali Pakai)
 
-Pemain bisa membeli item dari Soul Shop sebelum masuk game. Item dikonsumsi otomatis saat game selesai (tidak bisa dibawa ke game berikutnya kecuali dibeli lagi).
+Pemain bisa membeli item dari Soul Shop sebelum masuk game. Item dikonsumsi otomatis saat game selesai.
 
 - **+2 Max HP** — 40 souls: tambah 2 HP maksimum untuk game tersebut
 - **Score 2×** — 60 souls: gandakan skor selama 15 detik pertama game
-- **Soul Amplifier** — 50 souls: +50% souls yang diperoleh dari game tersebut
-- **+8 Detik** — 80 souls: perpanjang durasi game menjadi 38 detik
+- **Soul Amplifier** — 50 souls: +1 soul extra setiap kill monster di game tersebut (berlaku untuk semua jenis musuh)
 - **Start Shield** — 45 souls: mulai game dengan 5 detik invincible
 
 ---
@@ -237,7 +296,7 @@ Achievement dibagi 4 kategori:
 
 **Game (⚔)**
 - First Blood: selesaikan game pertama kali
-- Survive Full: bertahan hingga waktu habis tanpa mati
+- Survive Full: bertahan tanpa mati hingga HP = 0 dihindari (kondisi selamat)
 - Wave 3 Reached, Wave 5 Reached, Wave 10 Reached: capai wave tersebut
 - Kill 50, Kill 500, Kill 2000: total kills kumulatif semua game
 
@@ -282,7 +341,7 @@ Premium adalah status berlangganan yang diperoleh lewat redeem voucher. Tidak ad
 Keuntungan premium:
 - Pull hanya 8 souls (hemat 2 dari harga normal 10)
 - Multi pull hanya 72 souls (hemat 18)
-- Hard pity di pull ke-40, bukan ke-50
+- Hard pity di pull ke-70, bukan ke-100
 - Daily login reward 2× lipat
 - Badge premium di leaderboard dan profil
 
@@ -322,16 +381,15 @@ Ketika boss dari setiap wave berhasil dikalahkan, karakter aktif pemain menampil
 
 ## Alur Sesi Bermain
 
-1. Pemain login dengan username
+1. Pemain login dengan username + password
 2. Daily login reward muncul otomatis jika belum login hari ini
-3. Di hub, pemain bisa: pull gacha, beli item shop, pilih karakter aktif, lihat koleksi, achievements, leaderboard
+3. Di hub, pemain bisa: pull gacha, beli item shop, pilih karakter aktif, lihat koleksi (termasuk bintang & resonance), achievements, leaderboard
 4. Pilih karakter aktif dari koleksi yang dimiliki (atau default tanpa ability)
 5. Tekan Mulai Game
 6. Arena dimulai, wave pertama spawn setelah 1,2 detik
 7. Klik untuk dash, klik kanan untuk ability
-8. Setiap 9 detik: wave baru, musuh makin banyak, boss muncul di akhir setiap wave
-9. Boss mati → manifestasi karakter + suara + boss bermutasi jadi klon
-10. Saat waktu habis atau HP habis: game over, layar hasil muncul
-11. Souls + skor tersimpan ke database, achievements terbuka jika ada
+8. Setiap 9 detik: wave baru, musuh makin banyak
+9. Wave kelipatan 5: Boss muncul — memberi souls dan score besar, lalu bermutasi jadi klon
+10. Game berakhir **hanya ketika HP = 0** (tidak ada batas waktu)
+11. Souls (dari golem/boss kill × soulsMultiplier) + skor tersimpan ke database, achievements terbuka jika ada
 12. Kembali ke hub otomatis setelah 1,2 detik
-

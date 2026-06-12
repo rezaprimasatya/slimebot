@@ -8,6 +8,7 @@ type Mode = 'login' | 'register';
 export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -20,9 +21,9 @@ export default function AuthPage() {
     let res: { success: boolean; userId?: string; message?: string };
 
     if (mode === 'login') {
-      res = await loginUser(username);
+      res = await loginUser(username, password);
     } else {
-      res = await registerUser(username);
+      res = await registerUser(username, password);
     }
 
     if (res.success && res.userId) {
@@ -38,7 +39,10 @@ export default function AuthPage() {
     setMode(m);
     setError('');
     setUsername('');
+    setPassword('');
   };
+
+  const canSubmit = username.trim().length >= (mode === 'register' ? 3 : 1) && password.length >= (mode === 'register' ? 6 : 1);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white relative overflow-hidden">
@@ -102,6 +106,22 @@ export default function AuthPage() {
             )}
           </div>
 
+          <div>
+            <label className="block text-sm text-slate-400 mb-1.5">Password</label>
+            <input
+              type="password"
+              placeholder={mode === 'login' ? 'Masukkan password...' : 'Buat password baru...'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 bg-slate-800 rounded-lg text-white border border-slate-600 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-all font-mono text-sm"
+            />
+            {mode === 'register' && (
+              <p className="text-xs text-slate-600 mt-1.5">
+                Minimal 6 karakter
+              </p>
+            )}
+          </div>
+
           {error && (
             <div className="bg-red-900/30 border border-red-800 rounded-lg p-3 text-red-300 text-sm">
               {error}
@@ -110,9 +130,9 @@ export default function AuthPage() {
 
           <button
             type="submit"
-            disabled={isLoading || username.trim().length < (mode === 'register' ? 3 : 1)}
+            disabled={isLoading || !canSubmit}
             className={`w-full py-3 rounded-lg font-bold transition-all text-sm ${
-              isLoading || username.trim().length < (mode === 'register' ? 3 : 1)
+              isLoading || !canSubmit
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                 : mode === 'login'
                   ? 'bg-green-700 hover:bg-green-600 text-white active:scale-95 shadow-lg shadow-green-900/40'

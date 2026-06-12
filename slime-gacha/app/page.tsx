@@ -8,7 +8,8 @@ import {
   CHARACTERS, TIER_CSS_COLORS, TIER_GLOW_COLORS, TIER_ROWS, type Character,
 } from '@/game/characters';
 import { ACHIEVEMENTS, type Achievement } from '@/game/achievements';
-import { CHARACTER_PASSIVES } from '@/game/passives';
+import { CHARACTER_PASSIVES, getCharacterStars, computeCollectionPower, getStarMultiplier } from '@/game/passives';
+import { RESONANCES, getActiveResonances } from '@/game/resonance';
 import { CHARACTER_ABILITIES } from '@/game/abilities';
 import { SHOP_ITEMS } from '@/game/shop';
 import { getRank } from '@/game/ranks';
@@ -291,10 +292,13 @@ function HubScreen(p: HubProps) {
   p.ownedCharacters.forEach((id) => { ownedCounts[id] = (ownedCounts[id] ?? 0) + 1; });
   const uniqueOwned = Object.keys(ownedCounts).length;
   const totalChars = Object.keys(CHARACTERS).length;
-  const hardPity = p.isPremium ? 40 : 50;
+  const hardPity = p.isPremium ? 70 : 100;
   const pullsUntilPity = hardPity - p.pityCount;
   const rank = getRank(p.highScore);
   const selectedCharData = p.selectedCharacter ? CHARACTERS[p.selectedCharacter] : null;
+
+  const characterStars = getCharacterStars(p.ownedCharacters);
+  const collectionPower = computeCollectionPower(p.ownedCharacters);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col overflow-hidden relative">
@@ -328,7 +332,7 @@ function HubScreen(p: HubProps) {
             username={p.username} souls={p.souls} highScore={p.highScore}
             totalGamesPlayed={p.totalGamesPlayed} totalKills={p.totalKills}
             uniqueOwned={uniqueOwned} totalChars={totalChars} loginStreak={p.loginStreak}
-            isPremium={p.isPremium}
+            isPremium={p.isPremium} collectionPower={collectionPower}
           />
 
           {/* Character selector */}
@@ -382,11 +386,12 @@ function HubScreen(p: HubProps) {
               <div className="space-y-1">
                 {Object.keys(ownedCounts).slice(0, 4).map((id) => {
                   const pass = CHARACTER_PASSIVES[id];
+                  const stars = ownedCounts[id] ?? 1;
                   if (!pass) return null;
                   return (
                     <div key={id} className="text-xs text-slate-400 flex items-start gap-1">
                       <span className="text-purple-400 shrink-0">·</span>
-                      <span className="leading-tight">{pass.label}</span>
+                      <span className="leading-tight">{pass.label} {stars >= 2 && <span className="text-yellow-400">(×{getStarMultiplier(stars).toFixed(2)})</span>}</span>
                     </div>
                   );
                 })}
@@ -394,6 +399,28 @@ function HubScreen(p: HubProps) {
               </div>
             </div>
           )}
+
+          {/* Active resonances */}
+          {(() => {
+            const active = getActiveResonances(p.ownedCharacters);
+            if (active.length === 0) return null;
+            return (
+              <div className="bg-slate-800/50 rounded-xl p-3 border border-amber-800/40">
+                <div className="text-xs text-amber-400 font-semibold uppercase tracking-wide mb-2">⚡ Resonance Aktif</div>
+                <div className="space-y-1.5">
+                  {active.map((res) => (
+                    <div key={res.id} className="text-xs flex items-start gap-1.5">
+                      <span className="shrink-0">{res.icon}</span>
+                      <div>
+                        <div className="text-amber-300 font-bold leading-tight">{res.name}</div>
+                        <div className="text-slate-500 leading-tight">{res.description}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {p.lastResult && (
             <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50 space-y-2">
@@ -427,7 +454,7 @@ function HubScreen(p: HubProps) {
             <h1 className="text-5xl font-black font-mono tracking-tight bg-gradient-to-r from-green-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
               GACHA
             </h1>
-            <p className="text-slate-500 text-sm mt-1">10 Tier · God-tier peluang 0.05%</p>
+            <p className="text-slate-500 text-sm mt-1">10 Tier · God-tier peluang 0.005% · Duplikat = Upgrade ★</p>
           </div>
 
           {/* Pity meter */}
@@ -443,13 +470,13 @@ function HubScreen(p: HubProps) {
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${(p.pityCount / hardPity) * 100}%`,
-                  background: p.pityCount >= 40
+                  background: p.pityCount >= 80
                     ? 'linear-gradient(90deg, #f97316, #ef4444)'
                     : 'linear-gradient(90deg, #7c3aed, #a855f7)',
                 }}
               />
             </div>
-            {p.pityCount >= 40 && (
+            {p.pityCount >= 80 && (
               <div className="text-center text-xs text-orange-400 mt-1 font-bold animate-pulse">
                 🔥 Soft pity aktif! Rate Mythic+ meningkat!
               </div>
@@ -551,7 +578,7 @@ function HubScreen(p: HubProps) {
             ))}
           </div>
           <div className="flex-1 overflow-y-auto p-3">
-            {p.activeTab === 'collection' && <CollectionGrid ownedCounts={ownedCounts} />}
+            {p.activeTab === 'collection' && <CollectionGrid ownedCounts={ownedCounts} characterStars={characterStars} ownedCharacters={p.ownedCharacters} />}
             {p.activeTab === 'rates' && <DropRatesTable />}
             {p.activeTab === 'leaderboard' && <LeaderboardPanel data={p.leaderboard} currentUser={p.username} />}
             {p.activeTab === 'achievements' && <AchievementsPanel unlocked={p.achievements} />}
@@ -588,11 +615,13 @@ function HubScreen(p: HubProps) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PlayerCard({ username, souls, highScore, totalGamesPlayed, totalKills, uniqueOwned, totalChars, loginStreak, isPremium }: {
+function PlayerCard({ username, souls, highScore, totalGamesPlayed, totalKills, uniqueOwned, totalChars, loginStreak, isPremium, collectionPower }: {
   username: string; souls: number; highScore: number; totalGamesPlayed: number; totalKills: number;
-  uniqueOwned: number; totalChars: number; loginStreak: number; isPremium: boolean;
+  uniqueOwned: number; totalChars: number; loginStreak: number; isPremium: boolean; collectionPower: number;
 }) {
   const rank = getRank(highScore);
+  const maxPower = 330; // 55 × 6
+  const powerPct = Math.min((collectionPower / maxPower) * 100, 100);
   return (
     <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50 space-y-2">
       <div className="flex items-center gap-2">
@@ -609,6 +638,17 @@ function PlayerCard({ username, souls, highScore, totalGamesPlayed, totalKills, 
         <span className="text-xs font-bold" style={{ color: rank.cssColor }}>{rank.name}</span>
         <span className="text-xs text-slate-600 ml-auto">⭐ {highScore}</span>
       </div>
+      {collectionPower > 0 && (
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-amber-400 font-bold">⚡ Slime Power</span>
+            <span className="text-amber-300 font-mono font-bold">{collectionPower}<span className="text-slate-600">/{maxPower}</span></span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${powerPct}%`, background: 'linear-gradient(90deg, #f59e0b, #f97316, #ef4444)' }} />
+          </div>
+        </div>
+      )}
       <div className="space-y-1">
         <StatRow label="Souls" value={`💧 ${souls}`} color="text-cyan-400" />
         <StatRow label="Games" value={String(totalGamesPlayed)} color="text-slate-300" />
@@ -629,30 +669,81 @@ function StatRow({ label, value, color }: { label: string; value: string; color:
   );
 }
 
-function CollectionGrid({ ownedCounts }: { ownedCounts: Record<string, number> }) {
-  const sorted = Object.values(CHARACTERS).sort((a, b) => a.tier - b.tier);
+function StarDisplay({ stars, color }: { stars: number; color: string }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {sorted.map((char) => {
-        const count = ownedCounts[char.id] ?? 0;
-        const owned = count > 0;
-        const tierColor = TIER_CSS_COLORS[char.tierName];
-        const pass = CHARACTER_PASSIVES[char.id];
-        return (
-          <div key={char.id} className={`rounded-lg p-2 border transition-all text-center ${
-            owned ? 'border-slate-600 bg-slate-800/70' : 'border-slate-800 bg-slate-900/40 opacity-40 grayscale'
-          }`}>
-            <div className="w-10 h-10 rounded-full mx-auto mb-1.5 flex items-center justify-center text-lg font-bold border"
-              style={{ backgroundColor: `${tierColor}18`, borderColor: `${tierColor}60`, color: tierColor }}>
-              T{char.tier}
+    <div className="flex justify-center gap-0.5 mt-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <span key={i} className="text-xs" style={{ color: i < stars ? color : '#374151' }}>★</span>
+      ))}
+    </div>
+  );
+}
+
+function CollectionGrid({ ownedCounts, characterStars, ownedCharacters }: {
+  ownedCounts: Record<string, number>;
+  characterStars: Record<string, number>;
+  ownedCharacters: string[];
+}) {
+  const sorted = Object.values(CHARACTERS).sort((a, b) => a.tier - b.tier);
+  const activeResonances = getActiveResonances(ownedCharacters);
+  const activeIds = new Set(activeResonances.map((r) => r.id));
+  const ownedSet = new Set(Object.keys(ownedCounts));
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        {sorted.map((char) => {
+          const count = ownedCounts[char.id] ?? 0;
+          const owned = count > 0;
+          const stars = characterStars[char.id] ?? 0;
+          const isAwakened = stars >= 6;
+          const tierColor = TIER_CSS_COLORS[char.tierName];
+          const pass = CHARACTER_PASSIVES[char.id];
+          return (
+            <div key={char.id} className={`rounded-lg p-2 border transition-all text-center relative ${
+              isAwakened
+                ? 'border-yellow-500/70 bg-yellow-900/20'
+                : owned ? 'border-slate-600 bg-slate-800/70' : 'border-slate-800 bg-slate-900/40 opacity-40 grayscale'
+            }`}>
+              {isAwakened && <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-xs bg-yellow-500 text-black font-black px-1.5 rounded-full leading-tight">AWAKENED</div>}
+              <div className="w-10 h-10 rounded-full mx-auto mb-1 flex items-center justify-center text-lg font-bold border"
+                style={{ backgroundColor: `${tierColor}18`, borderColor: `${tierColor}60`, color: tierColor }}>
+                T{char.tier}
+              </div>
+              <div className="text-xs font-bold text-white truncate">{char.name}</div>
+              <div className="text-xs" style={{ color: tierColor }}>{char.tierName}</div>
+              {owned && <StarDisplay stars={stars} color={isAwakened ? '#f59e0b' : tierColor} />}
+              {owned && pass && <div className="text-xs text-purple-400 mt-0.5 leading-tight truncate" title={pass.label}>✦ {pass.label}</div>}
             </div>
-            <div className="text-xs font-bold text-white truncate">{char.name}</div>
-            <div className="text-xs" style={{ color: tierColor }}>{char.tierName}</div>
-            {owned && pass && <div className="text-xs text-purple-400 mt-0.5 leading-tight truncate" title={pass.label}>✦ {pass.label}</div>}
-            {owned && <div className="text-xs text-slate-500 mt-0.5">×{count}</div>}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+
+      {/* Resonance panel */}
+      <div className="space-y-1.5">
+        <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">Resonance ({activeResonances.length}/{RESONANCES.length})</div>
+        {RESONANCES.map((res) => {
+          const unlocked = activeIds.has(res.id);
+          const missing = res.requiredCharacters.filter((id) => !ownedSet.has(id));
+          return (
+            <div key={res.id} className={`rounded-lg p-2 border text-xs transition-all ${
+              unlocked ? 'border-amber-700/50 bg-amber-900/15' : 'border-slate-800 bg-slate-900/30 opacity-60'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span>{res.icon}</span>
+                <span className={`font-bold ${unlocked ? 'text-amber-300' : 'text-slate-400'}`}>{res.name}</span>
+                {unlocked && <span className="ml-auto text-green-400 text-xs font-bold">✓ AKTIF</span>}
+              </div>
+              <div className={unlocked ? 'text-slate-400' : 'text-slate-600'}>{res.description}</div>
+              {!unlocked && missing.length > 0 && (
+                <div className="text-slate-700 mt-0.5">
+                  Butuh: {missing.map((id) => CHARACTERS[id]?.name ?? id).join(', ')}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

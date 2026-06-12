@@ -9,15 +9,15 @@ type EnemyType = 'basic' | 'spike' | 'golem' | 'boss' | 'mutant';
 const STATIC_ENEMY_CONFIG: Record<Exclude<EnemyType, 'boss' | 'mutant'>, {
   speed: number; score: number; hp: number; maxHp: number;
 }> = {
-  basic: { hp: 1, maxHp: 1, speed: 78,  score: 10 },
-  spike: { hp: 1, maxHp: 1, speed: 150, score: 25 },
-  golem: { hp: 3, maxHp: 3, speed: 48,  score: 80 },
+  basic: { hp: 1, maxHp: 1, speed: 78,  score: 1 },
+  spike: { hp: 1, maxHp: 1, speed: 150, score: 1 },
+  golem: { hp: 3, maxHp: 3, speed: 48,  score: 1 },
 };
 
 const GAME_W = 800;
 const GAME_H = 600;
 const MARGIN = 30;
-const BASE_GAME_TIME = 30;
+
 const WAVE_INTERVAL = 9000;
 const DASH_KILL_THRESHOLD = 210;
 const INVINCIBILITY_MS = 1500;
@@ -33,6 +33,8 @@ export default class ActionScene extends Phaser.Scene {
   private pickups!: Phaser.Physics.Arcade.StaticGroup;
 
   private score = 0;
+  private soulsFromKills = 0;
+  private soulAmpActive = false;
   private health = 3;
   private maxHealth = 3;
   private wave = 0;
@@ -41,7 +43,7 @@ export default class ActionScene extends Phaser.Scene {
   private gameEnded = false;
   private isInvincible = false;
   private isDashing = false;
-  private usedRevive = false;
+  private revivesLeft = 0;
 
   // Combo
   private combo = 0;
@@ -64,7 +66,6 @@ export default class ActionScene extends Phaser.Scene {
   private abilityTimerEvent: Phaser.Time.TimerEvent | null = null;
 
   // Item effects
-  private maxGameTime = BASE_GAME_TIME;
   private itemScoreBoostEndsAt = 0; // epoch ms
 
   private passive!: AggregatedPassive;
@@ -96,17 +97,18 @@ export default class ActionScene extends Phaser.Scene {
 
     // Apply shop inventory items
     const inventory = store.inventoryItems;
-    this.maxGameTime = inventory.includes('time_extend') ? BASE_GAME_TIME + 8 : BASE_GAME_TIME;
     const extraHp = inventory.includes('hp_boost') ? 2 : 0;
     if (inventory.includes('score_boost')) this.itemScoreBoostEndsAt = Date.now() + 15000;
-    if (inventory.includes('soul_amp')) this.passive = { ...this.passive, soulsMultiplier: this.passive.soulsMultiplier * 1.5 };
+    this.soulAmpActive = inventory.includes('soul_amp');
     if (inventory.includes('start_shield')) this.passive = { ...this.passive, startInvincibleMs: Math.max(this.passive.startInvincibleMs, 5000) };
 
     this.score = 0;
+    this.soulsFromKills = 0;
     this.health = this.passive.maxHp + extraHp;
     this.maxHealth = this.passive.maxHp + extraHp;
     this.wave = 0; this.kills = 0; this.combo = 0;
-    this.gameEnded = false; this.isInvincible = false; this.isDashing = false; this.usedRevive = false;
+    this.gameEnded = false; this.isInvincible = false; this.isDashing = false;
+    this.revivesLeft = this.passive.reviveCount;
     this.healthIcons = [];
     this.startTime = Date.now();
     this.abilityScoreMult = 1.0; this.abilitySpeedMult = 1.0;
@@ -300,6 +302,7 @@ export default class ActionScene extends Phaser.Scene {
         const pts = Math.round((e.getData('score') as number) * this.getTotalScoreMult());
         this.addScore(pts, false);
         this.incrementKills();
+        this.awardSoulsForKill(e.getData('type') as EnemyType);
         this.spawnParticles(e.x, e.y, color, 5);
         (e.getData('hpBar') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         e.destroy();
@@ -319,6 +322,7 @@ export default class ActionScene extends Phaser.Scene {
         const pts = Math.round((e.getData('score') as number) * this.getTotalScoreMult());
         this.addScore(pts, false);
         this.incrementKills();
+        this.awardSoulsForKill(e.getData('type') as EnemyType);
         this.spawnParticles(e.x, e.y, color, 5);
         (e.getData('hpBar') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         e.destroy();
@@ -334,6 +338,7 @@ export default class ActionScene extends Phaser.Scene {
       const pts = Math.round((e.getData('score') as number) * this.getTotalScoreMult());
       this.addScore(pts, false);
       this.incrementKills();
+      this.awardSoulsForKill(e.getData('type') as EnemyType);
       this.spawnParticles(e.x, e.y, color, 6);
       (e.getData('hpBar') as Phaser.GameObjects.Graphics | undefined)?.destroy();
       e.destroy();
@@ -409,13 +414,23 @@ export default class ActionScene extends Phaser.Scene {
     this.wave++;
     useGameStore.getState().updateLiveWave(this.wave);
     this.waveTxt.setText(`Wave ${this.wave}`);
-    this.showAnnounce(`WAVE ${this.wave}`, '#f97316');
+
+    const isBossWave = this.wave % 5 === 0;
+    const nextIsBoss = (this.wave + 1) % 5 === 0;
+    if (isBossWave) {
+      this.showAnnounce(`⚠ BOSS WAVE ${this.wave}!`, '#ef4444');
+    } else if (nextIsBoss) {
+      this.showAnnounce(`WAVE ${this.wave} — BOSS INCOMING!`, '#f97316');
+    } else {
+      this.showAnnounce(`WAVE ${this.wave}`, '#f97316');
+    }
+
     this.spawnWave(this.wave);
 
     this.waveTimer?.remove(false);
     this.waveTimer = this.time.delayedCall(WAVE_INTERVAL, () => {
       if (this.gameEnded) return;
-      const bonus = Math.round((50 + this.wave * 15) * this.getTotalScoreMult());
+      const bonus = Math.round(this.wave * this.getTotalScoreMult());
       this.addScore(bonus, false);
       this.showFloat(GAME_W / 2, GAME_H / 2, `Wave Clear! +${bonus}`, '#facc15', 26);
       this.startNextWave();
@@ -423,16 +438,20 @@ export default class ActionScene extends Phaser.Scene {
   }
 
   private spawnWave(wave: number) {
-    const numBasic = Math.min(2 + wave * 2, 12);
-    const numSpike = wave >= 2 ? Math.min(wave, 6) : 0;
-    const numGolem = wave >= 3 ? Math.min(Math.floor((wave - 2) / 2), 4) : 0;
+    const isBossWave = wave % 5 === 0;
+    // Scale enemies more aggressively on non-boss waves to keep intensity
+    const numBasic = Math.min(2 + wave * 3, 16);
+    const numSpike = wave >= 2 ? Math.min(wave + 1, 8) : 0;
+    const numGolem = wave >= 3 ? Math.min(Math.floor((wave - 1) / 2), 5) : 0;
     let d = 0;
     const spawn = (type: EnemyType, delay: number) =>
       this.time.delayedCall(delay, () => { if (!this.gameEnded) this.spawnEnemy(type); });
     for (let i = 0; i < numBasic; i++) spawn('basic', (d += 280));
     for (let i = 0; i < numSpike; i++) spawn('spike', (d += 350));
     for (let i = 0; i < numGolem; i++) spawn('golem', (d += 500));
-    this.time.delayedCall(d + 600, () => { if (!this.gameEnded) this.spawnBoss(wave); });
+    if (isBossWave) {
+      this.time.delayedCall(d + 600, () => { if (!this.gameEnded) this.spawnBoss(wave); });
+    }
   }
 
   private spawnEnemy(type: EnemyType) {
@@ -458,14 +477,13 @@ export default class ActionScene extends Phaser.Scene {
     const boss = this.enemies.create(x, y, 'enemy_boss') as Phaser.Physics.Arcade.Sprite;
     const hp = wave * 15;
     boss.setData('type', 'boss'); boss.setData('hp', hp); boss.setData('maxHp', hp);
-    boss.setData('speed', 52 + wave * 4); boss.setData('score', 200 + wave * 50);
+    boss.setData('speed', 52 + wave * 4); boss.setData('score', wave * 2);
     boss.setData('isBoss', true); boss.setData('wave', wave);
     boss.setScale(1.4 + wave * 0.15);
     boss.setCircle(26, 4, 4);
     (boss.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
     const bar = this.add.graphics(); boss.setData('hpBar', bar); this.drawHpBar(boss, bar);
     this.cameras.main.shake(200, 0.006);
-    this.showAnnounce(`⚠ BOSS WAVE ${wave}!`, '#ef4444');
     this.tweens.add({ targets: boss, alpha: { from: 0, to: 1 }, duration: 400 });
     this.tweens.add({ targets: boss, scaleX: boss.scale * 1.08, scaleY: boss.scale * 1.08, duration: 500, yoyo: true, repeat: -1 });
   }
@@ -483,6 +501,7 @@ export default class ActionScene extends Phaser.Scene {
     this.spawnParticles(bx, by, 0xff00ff, 20);
     this.addScore(pts, false);
     this.incrementKills();
+    this.awardSoulsForKill('boss');
     this.showFloat(bx, by - 40, `BOSS MATI! +${pts}`, '#ff00ff', 24);
     this.showAnnounce(`MUTASI! ×${mutantCount} KLON!`, '#ff00ff');
     this.triggerBossKillManifestation(bx, by, wave, this.currentCharacterId);
@@ -505,7 +524,7 @@ export default class ActionScene extends Phaser.Scene {
     const hp = Math.max(1, Math.ceil(wave / 2));
     const speed = this.enemySlowActive ? Math.floor((155 + wave * 12) * 0.3) : 155 + wave * 12;
     mutant.setData('type', 'mutant'); mutant.setData('hp', hp); mutant.setData('maxHp', hp);
-    mutant.setData('speed', speed); mutant.setData('score', 30 + wave * 5);
+    mutant.setData('speed', speed); mutant.setData('score', 1);
     mutant.setData('isBoss', false); mutant.setData('isMutant', true);
     mutant.setScale(0.42 + wave * 0.05);
     mutant.setCircle(14, 6, 6);
@@ -551,6 +570,7 @@ export default class ActionScene extends Phaser.Scene {
         const pts = Math.round(rawPts * this.getTotalScoreMult());
         this.addScore(pts, false);
         this.incrementKills();
+        this.awardSoulsForKill(enemy.getData('type') as EnemyType);
         this.registerKillForCombo();
         this.spawnParticles(enemy.x, enemy.y, this.particleColor(enemy.getData('type')), 6);
         const dropRate = this.passive.pickupDropRate;
@@ -570,8 +590,8 @@ export default class ActionScene extends Phaser.Scene {
   }
 
   private takeDamage() {
-    if (this.health <= 1 && this.passive.reviveOnce && !this.usedRevive) {
-      this.usedRevive = true;
+    if (this.health <= 1 && this.revivesLeft > 0) {
+      this.revivesLeft--;
       this.showAnnounce('REVIVE!', '#22d3ee');
       this.cameras.main.shake(300, 0.01);
       this.combo = 0; this.comboTxt.setText('');
@@ -633,9 +653,21 @@ export default class ActionScene extends Phaser.Scene {
   private addScore(pts: number, _isPassive: boolean) {
     this.score += pts;
     this.scoreTxt.setText(String(this.score));
-    const soulsPreview = Math.round(Math.floor(this.score / 10) * this.passive.soulsMultiplier);
-    this.soulsTxt.setText(`~${soulsPreview} souls`);
     useGameStore.getState().updateLiveScore(this.score);
+  }
+
+  private awardSoulsForKill(type: EnemyType) {
+    const base = type === 'golem' ? 2 : type === 'boss' ? 5 : 0;
+    const total = base + (this.soulAmpActive ? 1 : 0);
+    if (total > 0) {
+      this.soulsFromKills += total;
+      this.updateSoulsHUD();
+    }
+  }
+
+  private updateSoulsHUD() {
+    const preview = Math.round(this.soulsFromKills * this.passive.soulsMultiplier);
+    this.soulsTxt.setText(`${preview} souls`);
   }
 
   private incrementKills() {
@@ -652,8 +684,8 @@ export default class ActionScene extends Phaser.Scene {
 
     this.waveTxt = this.add.text(12, 10, 'Wave 0', { ...base, fontSize: '15px', color: '#94a3b8' }).setDepth(6);
     this.scoreTxt = this.add.text(GAME_W / 2, 10, '0', { ...base, fontSize: '22px', fontStyle: 'bold', color: '#facc15' }).setOrigin(0.5, 0).setDepth(6);
-    this.timerTxt = this.add.text(12, 28, `${this.maxGameTime}s`, { ...base, fontSize: '12px', color: '#64748b' }).setDepth(6);
-    this.soulsTxt = this.add.text(GAME_W - 12, GAME_H - 20, '~0 souls', { ...base, fontSize: '13px', color: '#22d3ee' }).setOrigin(1, 1).setDepth(6);
+    this.timerTxt = this.add.text(12, 28, `0s`, { ...base, fontSize: '12px', color: '#64748b' }).setDepth(6);
+    this.soulsTxt = this.add.text(GAME_W - 12, GAME_H - 20, '0 souls', { ...base, fontSize: '13px', color: '#22d3ee' }).setOrigin(1, 1).setDepth(6);
     this.killsTxt = this.add.text(GAME_W - 12, GAME_H - 36, '⚔ 0', { ...base, fontSize: '12px', color: '#f97316' }).setOrigin(1, 1).setDepth(6);
 
     // Combo text
@@ -754,9 +786,7 @@ export default class ActionScene extends Phaser.Scene {
   update() {
     if (this.gameEnded) return;
     const elapsed = (Date.now() - this.startTime) / 1000;
-    const remaining = Math.max(0, this.maxGameTime - elapsed);
-    this.timerTxt.setText(`${Math.ceil(remaining)}s`).setColor(remaining <= 8 ? '#ef4444' : '#64748b');
-    if (remaining <= 0) { this.endGame(); return; }
+    this.timerTxt.setText(`${Math.floor(elapsed)}s`).setColor('#64748b');
 
     (this.enemies.getChildren() as Phaser.Physics.Arcade.Sprite[]).forEach((e) => {
       if (!e.active) return;
@@ -779,9 +809,8 @@ export default class ActionScene extends Phaser.Scene {
     this.input.off('pointerdown', this.handlePointerDown, this);
 
     const duration = (Date.now() - this.startTime) / 1000;
-    const survived = duration >= this.maxGameTime - 0.5;
-    const rawSouls = Math.max(1, Math.floor(this.score / 10));
-    const soulsEarned = Math.round(rawSouls * this.passive.soulsMultiplier);
+    const survived = this.health > 0;
+    const soulsEarned = Math.max(1, Math.round(this.soulsFromKills * this.passive.soulsMultiplier));
     const userId = this.registry.get('userId') as string;
     const isNewHighScore = this.score > useGameStore.getState().highScore;
 
@@ -811,7 +840,7 @@ export default class ActionScene extends Phaser.Scene {
     try {
       if (duration >= 5) {
         const { submitGameResult } = await import('@/app/actions');
-        const result = await submitGameResult({ userId, score: this.score, duration, wave: this.wave, kills: this.kills, survived });
+        const result = await submitGameResult({ userId, score: Math.round(this.score), soulsEarned, duration, wave: this.wave, kills: this.kills, survived });
         newAchievements = result.newAchievements ?? [];
       }
     } catch { /* non-fatal */ }
